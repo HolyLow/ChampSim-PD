@@ -8,9 +8,9 @@ trace="bzip2_183B"
 n_warm=1
 n_sim=10
 
-if [ ! -f bin/$executable ]; then
+# if [ ! -f bin/$executable ]; then
   ./build_champsim.sh bimodal no no $llc_policy $core
-fi
+# fi
 
 if [ ! -f run_champsim.sh ]; then
   cp scripts/run_champsim.sh ./
