@@ -30,15 +30,14 @@ public:
         const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type);
 
 private:
-    void flush();
-    void update_reuse_distance();
+    void update_protection_distance();
     void update_reuse_dis_counter(uint32_t reuse_dis);
 
     BLOCK ** block;
 
     uint32_t total_set;             // llc cache set number
     uint32_t prof_set;              // profiled set number
-    uint32_t total_way;             // llc cache way number
+    uint32_t total_way;             // llc cache way number, also indicates the set associativity
     
     uint32_t max_dis;               // max profiled distance
     uint32_t prt_dis;               // protection distance
