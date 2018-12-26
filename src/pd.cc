@@ -60,16 +60,17 @@ PD::PD(BLOCK** blk, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
     max_dis = 256;
     prt_dis = max_dis;
 
-    prof_step = max_dis / prof_siz;
+    prof_step = max_dis / prof_size;
     prof_step_cnt = new uint32_t[prof_set];
     memset(prof_step_cnt, 0, sizeof(uint32_t) * prof_set);
     prof_tag_bits = 16;
-    prof_tag = new FIFO[10];
+    prof_tag = new FIFO[prof_set];
     for (uint32_t i = 0; i < prof_set; ++i) {
         prof_tag[i].init(prof_size, prof_tag_bits);
     }
 
     reuse_dis_cnt = new uint32_t[max_dis / reuse_cnt_width];
+    memset(reuse_dis_cnt, 0, sizeof(uint32_t) * (max_dis / reuse_cnt_width));
 
     remain_prt_dis = new uint32_t* [prof_set];
     used_flag = new bool* [prof_set];
@@ -84,6 +85,15 @@ PD::PD(BLOCK** blk, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
 }
 
 PD::~PD() { 
+    delete [] prof_step_cnt; 
+    delete [] prof_tag;
+    delete [] reuse_dis_cnt;
+    for (uint32_t i = 0; i < prof_set; ++i) {
+        delete [] remain_prt_dis[i];
+        delete [] used_flag[i];
+    }
+    delete [] remain_prt_dis;
+    delete [] used_flag;
     printf("PD quit!\n"); 
 }
 
@@ -111,7 +121,7 @@ void PD::update(uint32_t set, uint32_t way) {
     reuse_dis = reuse_dis * prof_step + prof_step_cnt[set];
     update_reuse_dis_counter(reuse_dis);
     ++prof_step_cnt[set];
-    if (prof_step_cnt[set] == prof_step) {
+    if (prof_step_cnt[set] >= prof_step) {
         prof_tag[set].insert(block[set][way].tag);
         prof_step_cnt[set] = 0;
     }
