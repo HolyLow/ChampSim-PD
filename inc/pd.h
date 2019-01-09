@@ -3,6 +3,29 @@
 
 #include "cache.h"
 
+// #define PD_DEBUG_FLAG
+#define PD_LOG_FLAG
+
+#ifdef PD_DEBUG_FLAG 
+ #define PD_DEBUG(format, ...) \
+  do {                                               \
+    printf("==DEBUG>> <%s : %d : %s>: " format "\n",                              \
+        __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__);                      \
+  } while(0)
+#else 
+ #define PD_DEBUG(format, ...)            
+#endif 
+
+#ifdef PD_LOG_FLAG 
+ #define PD_LOG(format, ...) \
+  do {                                               \
+    printf("===LOG>>> <%s : %d : %s>: " format "\n",                              \
+        __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__);                      \
+  } while(0) 
+#else        
+ #define PD_LOG(format, ...)  
+#endif 
+
 class FIFO {
 public:
     FIFO() {}

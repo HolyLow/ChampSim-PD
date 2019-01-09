@@ -6,7 +6,7 @@ executable=bimodal-no-no-${llc_policy}-${core}core
 
 trace="bzip2_183B"
 n_warm=1
-n_sim=10
+n_sim=100
 
 # if [ ! -f bin/$executable ]; then
   ./build_champsim.sh bimodal no no $llc_policy $core

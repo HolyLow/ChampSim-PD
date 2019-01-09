@@ -21,6 +21,8 @@
 
 // USEFUL MACROS
 //#define DEBUG_PRINT
+
+/* */
 #define SANITY_CHECK
 #define LLC_BYPASS
 #define DRC_BYPASS

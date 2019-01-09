@@ -37,7 +37,7 @@ uint32_t FIFO::query(uint64_t t) {
 void FIFO::insert(uint64_t t) {
     uint64_t mask_tag = mask & t;
     ++head;
-    if (head == size)
+    if (head >= size)
         head = 0;
     tag[head] = mask_tag;
 
@@ -72,9 +72,9 @@ PD::PD(BLOCK** blk, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
     reuse_dis_cnt = new uint32_t[max_dis / reuse_cnt_width];
     memset(reuse_dis_cnt, 0, sizeof(uint32_t) * (max_dis / reuse_cnt_width));
 
-    remain_prt_dis = new uint32_t* [prof_set];
-    used_flag = new bool* [prof_set];
-    for (uint32_t i = 0; i < prof_set; ++i) {
+    remain_prt_dis = new uint32_t* [total_set];
+    used_flag = new bool* [total_set];
+    for (uint32_t i = 0; i < total_set; ++i) {
         remain_prt_dis[i] = new uint32_t[total_way];
         memset(remain_prt_dis[i], 0, sizeof(uint32_t) * total_way);
         used_flag[i] = new bool[total_way];
@@ -88,7 +88,7 @@ PD::~PD() {
     delete [] prof_step_cnt; 
     delete [] prof_tag;
     delete [] reuse_dis_cnt;
-    for (uint32_t i = 0; i < prof_set; ++i) {
+    for (uint32_t i = 0; i < total_set; ++i) {
         delete [] remain_prt_dis[i];
         delete [] used_flag[i];
     }
@@ -110,7 +110,7 @@ void PD::update(uint32_t set, uint32_t way) {
             remain_prt_dis[set][i] = prt_dis;
             used_flag[set][i] = true;
         }
-        else if (remain_prt_dis[set][i] != 0) {
+        else if (remain_prt_dis[set][i] > 0) {
             --remain_prt_dis[set][i];
         }
     }
@@ -140,7 +140,7 @@ uint32_t PD::victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
 
     if (way == total_way) {
         for (way = 0; way < total_way; ++way) {
-            if (remain_prt_dis[way] == 0) break;
+            if (remain_prt_dis[set][way] == 0) break;
         }
     }
 
@@ -180,6 +180,8 @@ uint32_t PD::victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
 
 
 void PD::update_protection_distance() {
+    PD_DEBUG("begin update pd");
+    uint32_t old_pd = prt_dis;
     uint32_t W = total_way;
     uint32_t max_offset = max_dis / reuse_cnt_width;
     uint32_t Nt = 0;
@@ -199,13 +201,17 @@ void PD::update_protection_distance() {
         }
     }
     prt_dis = (optimal_off + 1) * reuse_cnt_width;
+    PD_LOG("pd from %d to %d", old_pd, prt_dis);
 
-    for (uint32_t i = 0; i < prof_set; ++i) {
-        for (uint32_t j = 0; j < prof_set; ++j) {
+    for (uint32_t i = 0; i < total_set; ++i) {
+        for (uint32_t j = 0; j < total_way; ++j) {
             remain_prt_dis[i][j] = (prt_dis < remain_prt_dis[i][j]) 
                                  ?  prt_dis : remain_prt_dis[i][j];
         }
     }
+
+    memset(reuse_dis_cnt, 0, sizeof(uint32_t) * (max_offset));
+    PD_DEBUG("end update pd");
 }
 
 void PD::update_reuse_dis_counter(uint32_t reuse_dis) {
