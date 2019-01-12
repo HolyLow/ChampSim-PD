@@ -3,7 +3,7 @@
 
 #include "cache.h"
 
-// #define PD_DEBUG_FLAG
+#define PD_DEBUG_FLAG
 #define PD_LOG_FLAG
 
 #ifdef PD_DEBUG_FLAG 
@@ -79,6 +79,7 @@ private:
 
     uint64_t stage_size;            // the protection distance will be recomputed every #stage_size iterations
     uint64_t visit_cnt;             // the visitation counter
+    uint64_t prof_cnt;              // the profiled visitation counter
 
 };
 

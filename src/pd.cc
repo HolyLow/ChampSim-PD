@@ -55,8 +55,13 @@ PD::PD(BLOCK** blk, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
     total_set = LLC_SET;
     total_way = LLC_WAY;
     prof_set = total_set / 64;
+#ifdef PD_DEBUG_FLAG
+    stage_size = 512 * 1000;
+#else 
     stage_size = 512 * 1024;
+#endif
     visit_cnt = 0;
+    prof_cnt = 0;
     max_dis = 256;
     prt_dis = max_dis;
 
@@ -101,8 +106,8 @@ void PD::update(uint32_t set, uint32_t way) {
     // every stage_size visits, flush the prt_dis and remain_prt_dis counters
     ++visit_cnt;
     if (visit_cnt >= stage_size) {
-        visit_cnt = 0;
         update_protection_distance();
+        visit_cnt = 0;
     }
     // update the remain reuse distance
     for (uint32_t i = 0; i < total_way; ++i) {
@@ -116,10 +121,12 @@ void PD::update(uint32_t set, uint32_t way) {
     }
 
     if (set >= prof_set) return;
+    ++prof_cnt;
     uint32_t reuse_dis = prof_tag[set].query(block[set][way].tag);
-    if (reuse_dis >= prof_size) return;
-    reuse_dis = reuse_dis * prof_step + prof_step_cnt[set];
-    update_reuse_dis_counter(reuse_dis);
+    if (reuse_dis < prof_size) {
+        reuse_dis = reuse_dis * prof_step + prof_step_cnt[set];
+        update_reuse_dis_counter(reuse_dis);
+    }
     ++prof_step_cnt[set];
     if (prof_step_cnt[set] >= prof_step) {
         prof_tag[set].insert(block[set][way].tag);
@@ -185,22 +192,34 @@ void PD::update_protection_distance() {
     uint32_t W = total_way;
     uint32_t max_offset = max_dis / reuse_cnt_width;
     uint32_t Nt = 0;
+    // Nt += reuse_dis_cnt[i];
+    Nt = prof_cnt;
+    prof_cnt = 0;
+    PD_DEBUG("Nt: %d", Nt);
+    PD_DEBUG("reuse_dis_cnt ");
     for (uint32_t i = 0; i < max_offset; ++i) {
-        Nt += reuse_dis_cnt[i];
+        PD_DEBUG("%d-%d: %d, average %.1f", 
+            i * reuse_cnt_width, (i+1) * reuse_cnt_width,
+            reuse_dis_cnt[i], reuse_dis_cnt[i] / (float)reuse_cnt_width);
     }
     float optimal_E = 0.0;
     uint32_t optimal_off = 0;
     uint32_t Nii_acc = 0, Ni_acc = 0;
-    for (uint32_t i = 0; i < max_offset; ++i) {
-        Nii_acc += reuse_dis_cnt[i] * (i + 1);
-        Ni_acc += reuse_dis_cnt[i];
+    for (uint32_t i = 0; i < max_dis; ++i) {
+        uint32_t step_reuse_dis = reuse_dis_cnt[i / reuse_cnt_width] / reuse_cnt_width;
+        Nii_acc += step_reuse_dis * (i + 1);
+        Ni_acc += step_reuse_dis;
         float E = (float)Ni_acc / 
-            (Nii_acc + (Nt - Ni_acc) * (reuse_cnt_width * (i + 1) + W));
+            (Nii_acc + (Nt - Ni_acc) * (i + 1 + W));
         if (E > optimal_E) {
             optimal_off = i;
+            optimal_E = E;
         }
+        PD_DEBUG("iter %d: current E %.5f, optimal_E %.5f(from iter %d)",
+            i, E, optimal_E, optimal_off);
     }
-    prt_dis = (optimal_off + 1) * reuse_cnt_width;
+    // prt_dis = (optimal_off + 1) * reuse_cnt_width;
+    prt_dis = optimal_off + 1;
     PD_LOG("pd from %d to %d", old_pd, prt_dis);
 
     for (uint32_t i = 0; i < total_set; ++i) {
