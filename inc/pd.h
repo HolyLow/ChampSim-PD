@@ -44,9 +44,14 @@ private:
 
 };
 
+// define policies in the flag mode(1, 2, 4, 8, ...) to turn in / out the policy
+#define PD_ORIGINAL         1
+#define PD_SOFT_UPDATE      2
+
+
 class PD {
 public:
-    PD(BLOCK** blk, uint32_t prof_siz = 32, uint32_t reuse_cnt_wid = 4);
+    PD(BLOCK** blk, uint32_t p = PD_ORIGINAL, uint32_t prof_siz = 32, uint32_t reuse_cnt_wid = 4);
     ~PD();
     void update(uint32_t set, uint32_t way);
     uint32_t victim(uint32_t cpu, uint64_t instr_id, uint32_t set, 
@@ -57,6 +62,8 @@ private:
     void update_reuse_dis_counter(uint32_t reuse_dis);
 
     BLOCK ** block;
+
+    uint32_t policy;                // the pd_related policy
 
     uint32_t total_set;             // llc cache set number
     uint32_t prof_set;              // profiled set number

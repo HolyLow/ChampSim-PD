@@ -1,6 +1,6 @@
 #!/bin/bash
 
-llc_policy=pd
+llc_policy=soft_pd
 core=1
 executable=bimodal-no-no-${llc_policy}-${core}core
 

@@ -43,7 +43,7 @@ void FIFO::insert(uint64_t t) {
 
 }
 
-PD::PD(BLOCK** blk, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
+PD::PD(BLOCK** blk, uint32_t p, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
     if (blk == NULL) {
         printf("error: block provided to PD is NULL\n");
         assert(0);
@@ -51,6 +51,7 @@ PD::PD(BLOCK** blk, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
     block = blk;
     prof_size = prof_siz;
     reuse_cnt_width = reuse_cnt_wid;
+    policy = p;
 
     total_set = LLC_SET;
     total_way = LLC_WAY;
@@ -63,7 +64,10 @@ PD::PD(BLOCK** blk, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
     visit_cnt = 0;
     prof_cnt = 0;
     max_dis = 256;
-    prt_dis = max_dis;
+    if (policy & PD_SOFT_UPDATE)
+        prt_dis = max_dis / 2;
+    else 
+        prt_dis = max_dis;
 
     prof_step = max_dis / prof_size;
     prof_step_cnt = new uint32_t[prof_set];
@@ -220,6 +224,9 @@ void PD::update_protection_distance() {
     }
     // prt_dis = (optimal_off + 1) * reuse_cnt_width;
     prt_dis = optimal_off + 1;
+    if (policy & PD_SOFT_UPDATE) {
+        prt_dis = (prt_dis + old_pd) / 2;
+    }
     PD_LOG("pd from %d to %d", old_pd, prt_dis);
 
     for (uint32_t i = 0; i < total_set; ++i) {
