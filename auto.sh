@@ -1,10 +1,11 @@
 #!/bin/bash
 
-llc_policy=soft_pd
+llc_policy=pd
 core=1
 executable=bimodal-no-no-${llc_policy}-${core}core
 
-trace="bzip2_183B"
+# trace="bzip2_183B"
+trace="xalancbmk_99B"
 n_warm=1
 n_sim=100
 

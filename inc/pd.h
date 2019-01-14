@@ -8,9 +8,9 @@
 
 #ifdef PD_DEBUG_FLAG 
  #define PD_DEBUG(format, ...) \
-  do {                                               \
-    printf("==DEBUG>> <%s : %d : %s>: " format "\n",                              \
-        __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__);                      \
+  do { \
+    printf("==DEBUG>> <%s : %d : %s>: " format "\n", \
+        __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__); \
   } while(0)
 #else 
  #define PD_DEBUG(format, ...)            
@@ -18,9 +18,9 @@
 
 #ifdef PD_LOG_FLAG 
  #define PD_LOG(format, ...) \
-  do {                                               \
-    printf("===LOG>>> <%s : %d : %s>: " format "\n",                              \
-        __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__);                      \
+  do { \
+    printf("===LOG>>> <%s : %d : %s>: " format "\n", \
+        __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__); \
   } while(0) 
 #else        
  #define PD_LOG(format, ...)  
@@ -44,9 +44,11 @@ private:
 
 };
 
-// define policies in the flag mode(1, 2, 4, 8, ...) to turn in / out the policy
+// define policies in the flag mode(1, 2, 4, 8, ...) to turn in / out the option
 #define PD_ORIGINAL         1
 #define PD_SOFT_UPDATE      2
+#define PD_VICTIM           4
+#define PD_MAX              8
 
 
 class PD {
@@ -73,7 +75,8 @@ private:
     uint32_t prt_dis;               // protection distance
     uint32_t **remain_prt_dis;      // remained protection distance for all the sets
     bool **used_flag;               // flag for each ways, indicate if the way has been used
-    
+    bool **victim_flag;
+
     uint32_t prof_step;             // step of profiling, only one visit among #prof_step visits will be inserted to the prof_tag
     uint32_t* prof_step_cnt;        // cnter of profiling step for each prof_set
     uint32_t prof_size;             // the size of the prof_tag fifo array
@@ -87,6 +90,11 @@ private:
     uint64_t stage_size;            // the protection distance will be recomputed every #stage_size iterations
     uint64_t visit_cnt;             // the visitation counter
     uint64_t prof_cnt;              // the profiled visitation counter
+
+    uint64_t invalid_vic_cnt;
+    uint64_t prt_zero_vic_cnt;
+    uint64_t unreused_vic_cnt;
+    uint64_t reused_vic_cnt;
 
 };
 

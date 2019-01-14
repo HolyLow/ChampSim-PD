@@ -83,12 +83,20 @@ PD::PD(BLOCK** blk, uint32_t p, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
 
     remain_prt_dis = new uint32_t* [total_set];
     used_flag = new bool* [total_set];
+    victim_flag = new bool* [total_set];
     for (uint32_t i = 0; i < total_set; ++i) {
         remain_prt_dis[i] = new uint32_t[total_way];
         memset(remain_prt_dis[i], 0, sizeof(uint32_t) * total_way);
         used_flag[i] = new bool[total_way];
         memset(used_flag[i], 0, sizeof(bool) * total_way);
+        victim_flag[i] = new bool[total_way];
+        memset(victim_flag[i], 0, sizeof(bool) * total_way);
     }
+
+    invalid_vic_cnt = 0;
+    prt_zero_vic_cnt = 0;
+    unreused_vic_cnt = 0;
+    reused_vic_cnt = 0;
 
     printf("PD initialized!\n"); 
 }
@@ -100,9 +108,13 @@ PD::~PD() {
     for (uint32_t i = 0; i < total_set; ++i) {
         delete [] remain_prt_dis[i];
         delete [] used_flag[i];
+        delete [] victim_flag[i];
     }
     delete [] remain_prt_dis;
     delete [] used_flag;
+    delete [] victim_flag;
+    PD_LOG("victim_cnt: invalid %lld, prt_zero %lld, unreused %lld, reused %lld",
+        invalid_vic_cnt, prt_zero_vic_cnt, unreused_vic_cnt, reused_vic_cnt);
     printf("PD quit!\n"); 
 }
 
@@ -117,12 +129,32 @@ void PD::update(uint32_t set, uint32_t way) {
     for (uint32_t i = 0; i < total_way; ++i) {
         if (i == way) {
             remain_prt_dis[set][i] = prt_dis;
-            used_flag[set][i] = true;
+            if (policy & PD_VICTIM) {
+                if (victim_flag[set][i])
+                    victim_flag[set][i] = false;
+                else 
+                    used_flag[set][i] = true;
+            }
+            else {
+                used_flag[set][i] = true;
+            }
         }
         else if (remain_prt_dis[set][i] > 0) {
             --remain_prt_dis[set][i];
         }
     }
+    // for (uint32_t i = 0; i < total_set; ++i) {
+    //     for (uint32_t j = 0; j < total_way; ++j) {
+    //         if (i == set && j == way) {
+    //             remain_prt_dis[i][j] = prt_dis;
+    //             used_flag[i][j] = true;
+    //         }
+    //         else if (remain_prt_dis[i][j] > 0) {
+    //             --remain_prt_dis[i][j];
+    //         }
+
+    //     }
+    // }
 
     if (set >= prof_set) return;
     ++prof_cnt;
@@ -145,38 +177,76 @@ uint32_t PD::victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
 
     // fill invalid line first
     for (way = 0; way < total_way; ++way) {
-        if (block[set][way].valid == false)
+        if (block[set][way].valid == false) {
+            ++invalid_vic_cnt;
             break;
-    }
-
-    if (way == total_way) {
-        for (way = 0; way < total_way; ++way) {
-            if (remain_prt_dis[set][way] == 0) break;
         }
     }
 
     if (way == total_way) {
-        uint32_t used_min_rpd = max_dis,   unused_min_rpd = max_dis;
-        uint32_t used_min_way = total_way, unused_min_way = total_way;
         for (way = 0; way < total_way; ++way) {
-            if (used_flag[set][way]) {
-                if (used_min_rpd > remain_prt_dis[set][way]) {
-                    used_min_rpd = remain_prt_dis[set][way];
-                    used_min_way = way;
+            if (remain_prt_dis[set][way] == 0) {
+                ++prt_zero_vic_cnt;
+                break;
+            } 
+        }
+    }
+
+    if (way == total_way) {
+        if (policy & PD_MAX) {
+            uint32_t used_max_rpd = 0,   unused_max_rpd = 0;
+            uint32_t used_max_way = total_way, unused_max_way = total_way;
+            for (way = 0; way < total_way; ++way) {
+                if (used_flag[set][way]) {
+                    if (used_max_rpd < remain_prt_dis[set][way]) {
+                        used_max_rpd = remain_prt_dis[set][way];
+                        used_max_way = way;
+                    }
                 }
+                else {
+                    if (unused_max_rpd < remain_prt_dis[set][way]) {
+                        unused_max_rpd = remain_prt_dis[set][way];
+                        unused_max_way = way;
+                    }
+                }
+            }
+            if (unused_max_way < total_way) {
+                ++unreused_vic_cnt;
+                way = unused_max_way;
             }
             else {
-                if (unused_min_rpd > remain_prt_dis[set][way]) {
-                    unused_min_rpd = remain_prt_dis[set][way];
-                    unused_min_way = way;
-                }
+                ++reused_vic_cnt;
+                way = used_max_way;
             }
         }
-        if (unused_min_way < total_way)
-            way = unused_min_way;
-        else 
-            way = used_min_way;
-    }
+        else {
+            uint32_t used_min_rpd = max_dis,   unused_min_rpd = max_dis;
+            uint32_t used_min_way = total_way, unused_min_way = total_way;
+            for (way = 0; way < total_way; ++way) {
+                if (used_flag[set][way]) {
+                    if (used_min_rpd > remain_prt_dis[set][way]) {
+                        used_min_rpd = remain_prt_dis[set][way];
+                        used_min_way = way;
+                    }
+                }
+                else {
+                    if (unused_min_rpd > remain_prt_dis[set][way]) {
+                        unused_min_rpd = remain_prt_dis[set][way];
+                        unused_min_way = way;
+                    }
+                }
+            }
+            if (unused_min_way < total_way) {
+                ++unreused_vic_cnt;
+                way = unused_min_way;
+            }
+            else {
+                ++reused_vic_cnt;
+                way = used_min_way;
+            }
+        }
+
+        }
 
     if (way == total_way) {
         cerr << "[LLC] " << __func__ << " no victim! set: " << set << endl;
@@ -185,6 +255,7 @@ uint32_t PD::victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
 
     remain_prt_dis[set][way] = prt_dis;
     used_flag[set][way] = false;
+    victim_flag[set][way] = true;
     return way;
     
 }
@@ -222,7 +293,6 @@ void PD::update_protection_distance() {
         PD_DEBUG("iter %d: current E %.5f, optimal_E %.5f(from iter %d)",
             i, E, optimal_E, optimal_off);
     }
-    // prt_dis = (optimal_off + 1) * reuse_cnt_width;
     prt_dis = optimal_off + 1;
     if (policy & PD_SOFT_UPDATE) {
         prt_dis = (prt_dis + old_pd) / 2;
