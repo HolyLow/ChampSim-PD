@@ -7,7 +7,7 @@ PD *pd;
 // initialize replacement state
 void CACHE::llc_initialize_replacement()
 {
-    pd = new PD(block, PD_VICTIM | PD_MAX);
+    pd = new PD(block, PD_WRITEBACK);
 }
 
 // find replacement victim

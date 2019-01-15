@@ -59,7 +59,7 @@ PD::PD(BLOCK** blk, uint32_t p, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
 #ifdef PD_DEBUG_FLAG
     stage_size = 512 * 1000;
 #else 
-    stage_size = 512 * 1024;
+    stage_size = 512 * 1000;
 #endif
     visit_cnt = 0;
     prof_cnt = 0;
@@ -98,6 +98,10 @@ PD::PD(BLOCK** blk, uint32_t p, uint32_t prof_siz, uint32_t reuse_cnt_wid) {
     unreused_vic_cnt = 0;
     reused_vic_cnt = 0;
 
+    writeback_cnt = 0;
+    total_cnt = 0;
+    load_cnt = 0;
+
     printf("PD initialized!\n"); 
 }
 
@@ -118,8 +122,13 @@ PD::~PD() {
     printf("PD quit!\n"); 
 }
 
-void PD::update(uint32_t set, uint32_t way) {
+void PD::update(uint32_t set, uint32_t way, uint32_t type, uint8_t hit) {
     // every stage_size visits, flush the prt_dis and remain_prt_dis counters
+    ++total_cnt;
+    if (type == WRITEBACK)
+        ++writeback_cnt;
+    else if (type == LOAD)
+        ++load_cnt;
     ++visit_cnt;
     if (visit_cnt >= stage_size) {
         update_protection_distance();
@@ -307,6 +316,41 @@ void PD::update_protection_distance() {
     }
 
     memset(reuse_dis_cnt, 0, sizeof(uint32_t) * (max_offset));
+
+    if (policy & PD_WRITEBACK) {
+        PD_LOG("writeback_cnt %lld, total_cnt %lld", writeback_cnt, total_cnt);
+        if (3 * writeback_cnt >= total_cnt) {
+            uint32_t p = PD_VICTIM | PD_MAX;
+            policy &= (~p);
+            PD_LOG("switch to non_vic non_max");
+        }
+        else {
+            uint32_t p = PD_VICTIM | PD_MAX;
+            policy |= p;
+            PD_LOG("switch to vic max");
+        }
+        writeback_cnt = 0;
+        total_cnt = 0;
+        load_cnt = 0;
+    }
+    else if (policy & PD_LOAD) {
+        PD_LOG("load_cnt %lld, total_cnt %lld", load_cnt, total_cnt);
+        if (load_cnt < total_cnt / 4 * 3) {
+            uint32_t p = PD_VICTIM | PD_MAX;
+            policy &= (~p);
+            PD_LOG("switch to non_vic non_max");
+        }
+        else {
+            uint32_t p = PD_VICTIM;
+            policy |= p;
+            p = PD_MAX;
+            policy &= (~p);
+            PD_LOG("switch to vic(but no max)");
+        }
+        writeback_cnt = 0;
+        total_cnt = 0;
+        load_cnt = 0;
+    }
     PD_DEBUG("end update pd");
 }
 

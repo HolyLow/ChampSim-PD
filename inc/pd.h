@@ -3,7 +3,7 @@
 
 #include "cache.h"
 
-#define PD_DEBUG_FLAG
+// #define PD_DEBUG_FLAG
 #define PD_LOG_FLAG
 
 #ifdef PD_DEBUG_FLAG 
@@ -49,13 +49,15 @@ private:
 #define PD_SOFT_UPDATE      2
 #define PD_VICTIM           4
 #define PD_MAX              8
+#define PD_WRITEBACK        16
+#define PD_LOAD             32
 
 
 class PD {
 public:
     PD(BLOCK** blk, uint32_t p = PD_ORIGINAL, uint32_t prof_siz = 32, uint32_t reuse_cnt_wid = 4);
     ~PD();
-    void update(uint32_t set, uint32_t way);
+    void update(uint32_t set, uint32_t way, uint32_t type = LOAD, uint8_t hit = 1);
     uint32_t victim(uint32_t cpu, uint64_t instr_id, uint32_t set, 
         const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type);
 
@@ -80,7 +82,7 @@ private:
     uint32_t prof_step;             // step of profiling, only one visit among #prof_step visits will be inserted to the prof_tag
     uint32_t* prof_step_cnt;        // cnter of profiling step for each prof_set
     uint32_t prof_size;             // the size of the prof_tag fifo array
-    FIFO *prof_tag;                // the profiled tags, stored in fifo structure
+    FIFO *prof_tag;                 // the profiled tags, stored in fifo structure
     uint32_t prof_tag_bits;         // the profiled tag bit length
 
     uint32_t *reuse_dis_cnt;        // reuse distance cnt (aka the reuse distance distribution)
@@ -95,6 +97,10 @@ private:
     uint64_t prt_zero_vic_cnt;
     uint64_t unreused_vic_cnt;
     uint64_t reused_vic_cnt;
+
+    uint64_t writeback_cnt;
+    uint64_t load_cnt;
+    uint64_t total_cnt;
 
 };
 
